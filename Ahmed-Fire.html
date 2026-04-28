@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ahmed Fire Mobile 🔥</title>
+<style>
+*{ -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body{text-align:center;background:#0f0f1e;color:white;font-family:Arial;margin:0;padding:5px;touch-action:manipulation}
+canvas{border:3px solid #00ff88;background:#1a1a2e;max-width:95%;display:block;margin:5px auto}
+#controls{position:fixed;bottom:10px;width:100%;left:0;background:#0f0f1e;padding:10px 0}
+.dpad{display:inline-block;vertical-align:middle;margin:0 20px}
+.btn{width:60px;height:60px;margin:2px;font-size:24px;background:#00ff88;border:none;border-radius:15px;font-weight:bold;touch-action:manipulation}
+.btn:active{background:#00cc6a;transform:scale(0.9)}
+.fireBtn{width:80px;height:80px;background:#ff4444;border-radius:50%;font-size:16px}
+.fireBtn:active{background:#cc0000}
+#startBtn{padding:12px 30px;font-size:18px;background:#ff4444;color:white;border:none;border-radius:10px;margin:5px;font-weight:bold;touch-action:manipulation}
+#menu{background:#1a1a2e;padding:15px;border-radius:10px;margin:10px}
+.levelBtn{padding:10px 15px;margin:5px;font-size:16px;border:none;border-radius:8px;font-weight:bold}
+.row{text-align:center;margin:2px}
+#level{color:#00ff88;font-weight:bold}
+</style>
+</head>
+<body>
+<h2>🔥 AHMED FIRE MOBILE 🔥</h2>
+<canvas id=game width=350 height=350></canvas>
+<h3>Score: <span id=score>0</span> | HP: <span id=hp>100</span> | Level: <span id=level>Easy</span></h3>
+
+<div id="menu">
+  <h3>SELECT DIFFICULTY</h3>
+  <button class="levelBtn" style="background:#4CAF50" onclick="setDifficulty('easy')">😊 EASY</button>
+  <button class="levelBtn" style="background:#FFC107" onclick="setDifficulty('medium')">😎 MEDIUM</button>
+  <button class="levelBtn" style="background:#FF5722" onclick="setDifficulty('hard')">😈 HARD</button>
+  <button class="levelBtn" style="background:#9C27B0" onclick="setDifficulty('insane')">💀 INSANE</button>
+  <br><br>
+  <button id="startBtn" onclick=startGame() style="display:none">🎮 START GAME 🎮</button>
+</div>
+
+<div id=controls style="display:none">
+  <div class="dpad">
+    <div class="row"><button class=btn oncontextmenu="return false" ontouchstart="keys['ArrowUp']=true;event.preventDefault()" ontouchend="keys['ArrowUp']=false">⬆️</button></div>
+    <div class="row">
+      <button class=btn oncontextmenu="return false" ontouchstart="keys['ArrowLeft']=true;event.preventDefault()" ontouchend="keys['ArrowLeft']=false">⬅️</button>
+      <button class=btn oncontextmenu="return false" ontouchstart="keys['ArrowDown']=true;event.preventDefault()" ontouchend="keys['ArrowDown']=false">⬇️</button>
+      <button class=btn oncontextmenu="return false" ontouchstart="keys['ArrowRight']=true;event.preventDefault()" ontouchend="keys['ArrowRight']=false">➡️</button>
+    </div>
+  </div>
+  <button class="btn fireBtn" oncontextmenu="return false" ontouchstart="keys[' ']=true;event.preventDefault()" ontouchend="keys[' ']=false">🔫<br>FIRE</button>
+</div>
+
+<script>
+let c=game.getContext('2d'),player,bullets,enemies,keys={},score=0,hp=100,gameRunning=false;
+let difficulty='easy', enemySpeed=2, spawnRate=0.03, enemyHP=1;
+
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+function setDifficulty(level){
+    difficulty=level;
+    document.getElementById('startBtn').style.display='inline-block';
+    if(level=='easy'){enemySpeed=2;spawnRate=0.03;enemyHP=1;document.getElementById('level').innerText='Easy 😊'}
+    if(level=='medium'){enemySpeed=3;spawnRate=0.05;enemyHP=1;document.getElementById('level').innerText='Medium 😎'}
+    if(level=='hard'){enemySpeed=4;spawnRate=0.07;enemyHP=2;document.getElementById('level').innerText='Hard 😈'}
+    if(level=='insane'){enemySpeed=6;spawnRate=0.1;enemyHP=3;document.getElementById('level').innerText='INSANE 💀'}
+}
+
+function startGame(){
+    document.getElementById('menu').style.display='none';
+    document.getElementById('controls').style.display='block';
+    player={x:160,y:300,w:30,h:30,speed:4};
+    bullets=[]; enemies=[]; score=0; hp=100; gameRunning=true;
+    document.getElementById('score').innerText=0; 
+    document.getElementById('hp').innerText=100;
+    gameLoop();
+}
+
+function gameLoop(){
+    if(!gameRunning) return;
+    c.clearRect(0,0,350,350);
+    
+    if(keys['ArrowLeft']&&player.x>0) player.x-=player.speed;
+    if(keys['ArrowRight']&&player.x<320) player.x+=player.speed;
+    if(keys['ArrowUp']&&player.y>0) player.y-=player.speed;
+    if(keys['ArrowDown']&&player.y<320) player.y+=player.speed;
+    if(keys[' ']){bullets.push({x:player.x+12,y:player.y,w:6,h:15});keys[' ']=false}
+    
+    c.fillStyle='#00ff88'; c.fillRect(player.x,player.y,player.w,player.h);
+    
+    c.fillStyle='yellow';
+    bullets.forEach((b,i)=>{
+        b.y-=10; c.fillRect(b.x,b.y,b.w,b.h);
+        if(b.y<0) bullets.splice(i,1);
+    });
+    
+    if(Math.random()<spawnRate) enemies.push({x:Math.random()*325,y:0,w:25,h:25,speed:enemySpeed,hp:enemyHP});
+    
+    c.fillStyle='#ff4444';
+    enemies.forEach((e,i)=>{
+        e.y+=e.speed; c.fillRect(e.x,e.y,e.w,e.h);
+        // Enemy HP bar
+        c.fillStyle='white'; c.fillRect(e.x,e.y-5,e.w,3);
+        c.fillStyle='#00ff88'; c.fillRect(e.x,e.y-5,e.w*(e.hp/enemyHP),3);
+        c.fillStyle='#ff4444';
+        
+        if(e.x<player.x+player.w&&e.x+e.w>player.x&&e.y<player.y+player.h&&e.y+e.h>player.y){
+            hp-=10; document.getElementById('hp').innerText=hp; enemies.splice(i,1);
+            if(hp<=0){
+                alert(`GAME OVER! Score: ${score} 🔥\nLevel: ${difficulty.toUpperCase()}`);
+                gameRunning=false;
+                document.getElementById('menu').style.display='block';
+                document.getElementById('controls').style.display='none';
+                document.getElementById('startBtn').style.display='none';
+            }
+        }
+        bullets.forEach((b,j)=>{
+            if(b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){
+                e.hp--; bullets.splice(j,1);
+                if(e.hp<=0){enemies.splice(i,1); score+=10*enemyHP; document.getElementById('score').innerText=score;}
+            }
+        });
+        if(e.y>350) enemies.splice(i,1);
+    });
+    
+    requestAnimationFrame(gameLoop);
+}
+</script>
+</body>
+</html>
