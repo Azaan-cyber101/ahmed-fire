@@ -178,4 +178,457 @@ canvas{border:3px solid #00ff88;background:#1a1a2e;max-width:95%;display:block;m
   <div class="menuBox">
     <h2>🎫 PLAYER ID CARD 🎫</h2>
     <div class="idCard">
-      <div class="idRo
+      <div class="idRow">
+        <span class="idLabel">Name:</span>
+        <span class="idValue" id="cardName">Player</span>
+      </div>
+      <div class="idRow">
+        <span class="idLabel">Level:</span>
+        <span class="idValue" id="cardLevel">1</span>
+      </div>
+      <div class="idRow">
+        <span class="idLabel">Total Score:</span>
+        <span class="idValue" id="cardScore">0</span>
+      </div>
+      <div class="idRow">
+        <span class="idLabel">Coins:</span>
+        <span class="idValue" id="cardCoins">0</span>
+      </div>
+      <div class="idRow">
+        <span class="idLabel">Current Skin:</span>
+        <span class="idValue" id="cardSkin">Default 🟢</span>
+      </div>
+      <div class="idRow">
+        <span class="idLabel">Skins Unlocked:</span>
+        <span class="idValue" id="cardSkinCount">1/6</span>
+      </div>
+    </div>
+
+    <input type="text" class="idInput" id="nameInput" placeholder="Enter Your Name" maxlength="15">
+    <button class="menuBoxBtn" onclick="savePlayerName()">SAVE NAME ✅</button>
+    <button class="menuBoxBtn" onclick="closeIDCard()">BACK TO MENU ↩️</button>
+  </div>
+</div>
+
+<!-- VAULT MENU -->
+<div id="vaultMenu">
+  <div class="menuBox">
+    <h2>🗃️ SKIN VAULT 🗃️</h2>
+    <div id="vaultList"></div>
+    <button class="menuBoxBtn" onclick="closeVault()">BACK TO MENU ↩️</button>
+  </div>
+</div>
+
+<script>
+let c=game.getContext('2d'),player,bullets,enemies,keys={},score=0,hp=100,gameRunning=false;
+let difficulty='easy', enemySpeed=2, spawnRate=0.03, enemyHP=1, coins=0;
+let isPaused=false, spinning=false, currentSkin='default';
+let unlockedSkins = ['default'], particles=[];
+let playerName = 'Player', playerLevel = 1;
+
+const SKINS = {
+    default: {name:'Default 🟢', color:'#00ff88', bulletColor:'yellow', bulletType:'normal'},
+    yellow: {name:'Yellow Skin 🟡', color:'#ffff00', bulletColor:'#ffff00', bulletType:'normal'},
+    fire: {name:'Fire Skin 🔥', color:'#ff4444', bulletColor:'#ff8800', bulletType:'fire'},
+    water: {name:'Water Skin 💧', color:'#4444ff', bulletColor:'#00ccff', bulletType:'water'},
+    legend: {name:'Legend Skin 👑', color:'#ff00ff', bulletColor:'#ffff00', bulletType:'normal'},
+    aura: {name:'Aura Skin ⚫', color:'#1a1a1a', bulletColor:'#333333', bulletType:'aura'}
+};
+
+// ===== SAVE / LOAD SYSTEM =====
+function loadGame() {
+    score = parseInt(localStorage.getItem('boxFireScore')) || 0;
+    coins = parseInt(localStorage.getItem('boxFireCoins')) || 0;
+    currentSkin = localStorage.getItem('boxFireSkin') || 'default';
+    unlockedSkins = JSON.parse(localStorage.getItem('boxFireSkins')) || ['default'];
+    playerName = localStorage.getItem('boxFireName') || 'Player';
+    playerLevel = parseInt(localStorage.getItem('boxFireLevel')) || 1;
+
+    document.getElementById('score').innerText = score;
+    document.getElementById('coins').innerText = coins;
+    document.getElementById('playerName').innerText = playerName;
+    document.getElementById('playerLevel').innerText = playerLevel;
+    updateSkinDisplay();
+    updatePlayerLevel();
+}
+function saveGame() {
+    localStorage.setItem('boxFireScore', score);
+    localStorage.setItem('boxFireCoins', coins);
+    localStorage.setItem('boxFireSkin', currentSkin);
+    localStorage.setItem('boxFireSkins', JSON.stringify(unlockedSkins));
+    localStorage.setItem('boxFireName', playerName);
+    localStorage.setItem('boxFireLevel', playerLevel);
+}
+function updateSkinDisplay(){
+    document.getElementById('currentSkin').innerText = SKINS[currentSkin].name;
+    document.getElementById('currentSkin').style.color = SKINS[currentSkin].color;
+    document.getElementById('menuSkin').innerText = SKINS[currentSkin].name;
+    document.getElementById('menuSkin').style.color = SKINS[currentSkin].color;
+}
+function updatePlayerLevel(){
+    // Level = Score / 1000 + 1
+    playerLevel = Math.floor(score / 1000) + 1;
+    document.getElementById('playerLevel').innerText = playerLevel;
+    saveGame();
+}
+// ===== SAVE / LOAD END =====
+
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+function setDifficulty(level){
+    difficulty=level;
+    document.getElementById('startBtn').style.display='inline-block';
+    if(level=='easy'){enemySpeed=2;spawnRate=0.03;enemyHP=1;document.getElementById('level').innerText='Easy 😊'}
+    if(level=='medium'){enemySpeed=3;spawnRate=0.05;enemyHP=1;document.getElementById('level').innerText='Medium 😎'}
+    if(level=='hard'){enemySpeed=4;spawnRate=0.07;enemyHP=2;document.getElementById('level').innerText='Hard 😈'}
+    if(level=='insane'){enemySpeed=6;spawnRate=0.1;enemyHP=3;document.getElementById('level').innerText='INSANE 💀'}
+}
+
+function startGame(){
+    document.getElementById('menu').style.display='none';
+    document.getElementById('controls').style.display='block';
+    player={x:160,y:300,w:30,h:30,speed:4};
+    bullets=[]; enemies=[]; particles=[]; hp=100; gameRunning=true; isPaused=false;
+    document.getElementById('hp').innerText=100;
+    loadGame();
+    gameLoop();
+}
+
+// ===== MENU + VAULT + ID CARD SYSTEM =====
+function openPauseMenu(){
+    if(!gameRunning) return;
+    isPaused=true;
+    document.getElementById('pauseMenu').style.display='flex';
+    document.getElementById('menuCoins').innerText = coins;
+    document.getElementById('spinBtn').disabled = coins < 500 || spinning;
+    document.getElementById('wheelResult').innerText = '';
+}
+
+function closePauseMenu(){
+    isPaused=false;
+    document.getElementById('pauseMenu').style.display='none';
+    if(gameRunning) requestAnimationFrame(gameLoop);
+}
+
+function openIDCard(){
+    document.getElementById('pauseMenu').style.display='none';
+    document.getElementById('idCardMenu').style.display='flex';
+    document.getElementById('cardName').innerText = playerName;
+    document.getElementById('cardLevel').innerText = playerLevel;
+    document.getElementById('cardScore').innerText = score;
+    document.getElementById('cardCoins').innerText = coins;
+    document.getElementById('cardSkin').innerText = SKINS[currentSkin].name;
+    document.getElementById('cardSkinCount').innerText = unlockedSkins.length + '/6';
+    document.getElementById('nameInput').value = playerName;
+}
+
+function closeIDCard(){
+    document.getElementById('idCardMenu').style.display='none';
+    document.getElementById('pauseMenu').style.display='flex';
+}
+
+function savePlayerName(){
+    const newName = document.getElementById('nameInput').value.trim();
+    if(newName.length < 2){
+        alert('Name must be at least 2 characters!');
+        return;
+    }
+    playerName = newName;
+    document.getElementById('playerName').innerText = playerName;
+    document.getElementById('cardName').innerText = playerName;
+    saveGame();
+    alert('Name saved! ✅');
+}
+
+function openVault(){
+    document.getElementById('pauseMenu').style.display='none';
+    document.getElementById('vaultMenu').style.display='flex';
+    renderVault();
+}
+
+function closeVault(){
+    document.getElementById('vaultMenu').style.display='none';
+    document.getElementById('pauseMenu').style.display='flex';
+}
+
+function renderVault(){
+    const vaultList = document.getElementById('vaultList');
+    vaultList.innerHTML = '';
+    Object.keys(SKINS).forEach(skinKey => {
+        const skin = SKINS[skinKey];
+        const unlocked = unlockedSkins.includes(skinKey);
+        const equipped = currentSkin === skinKey;
+        const card = document.createElement('div');
+        card.className = 'skinCard' + (equipped? ' equipped' : '');
+        card.innerHTML = `
+            <div style="display:flex;align-items:center;">
+                <div class="skinPreview" style="background:${skin.color};border:1px solid #555"></div>
+                <div style="text-align:left;">
+                    <div style="font-weight:bold;color:${skin.color}">${skin.name}</div>
+                    <div style="font-size:12px;color:#999">${unlocked? (equipped? 'Equipped ✅' : 'Unlocked') : 'Locked 🔒'}</div>
+                </div>
+            <button class="equipBtn" ${!unlocked || equipped? 'disabled' : ''}
+                onclick="equipSkin('${skinKey}')">${equipped? 'EQUIPPED' : 'EQUIP'}</button>
+        `;
+        vaultList.appendChild(card);
+    });
+}
+
+function equipSkin(skinKey){
+    if(!unlockedSkins.includes(skinKey)) return;
+    currentSkin = skinKey;
+    updateSkinDisplay();
+    saveGame();
+    renderVault();
+}
+
+// WHEEL ODDS: 200=40%, Yellow=20%, 800=12%, Water=10%, Legend=10%, Fire=5%, Aura=3%
+function spinWheel(){
+    if(spinning || coins < 500) return;
+    spinning = true;
+    coins -= 500;
+    document.getElementById('coins').innerText = coins;
+    document.getElementById('menuCoins').innerText = coins;
+    document.getElementById('spinBtn').disabled = true;
+    saveGame();
+
+    const rand = Math.random() * 100;
+    let prize, prizeText, targetOffset=0;
+
+    if(rand < 40){
+        prize = 'coins200';
+        coins += 200;
+        prizeText = `💰 200 Coins! <br>Total: ${coins}`;
+        targetOffset = 72;
+    } else if(rand < 60){
+        prize = 'yellow';
+        if(!unlockedSkins.includes('yellow')){
+            unlockedSkins.push('yellow');
+            currentSkin = 'yellow';
+            prizeText = `🟡 YELLOW SKIN! <br>Check Vault 🗃️`;
+        } else {
+            coins += 100;
+            prizeText = `🟡 Yellow Duplicate!<br>+100 Coins`;
+        }
+        targetOffset = 180;
+    } else if(rand < 72){
+        prize = 'coins800';
+        coins += 800;
+        prizeText = `💰 800 Coins JACKPOT! <br>Total: ${coins}`;
+        targetOffset = 237;
+    } else if(rand < 82){
+        prize = 'water';
+        if(!unlockedSkins.includes('water')){
+            unlockedSkins.push('water');
+            currentSkin = 'water';
+            prizeText = `💧 WATER SKIN! <br>Check Vault 🗃️`;
+        } else {
+            coins += 100;
+            prizeText = `💧 Water Duplicate!<br>+100 Coins`;
+        }
+        targetOffset = 277;
+    } else if(rand < 92){
+        prize = 'legend';
+        if(!unlockedSkins.includes('legend')){
+            unlockedSkins.push('legend');
+            currentSkin = 'legend';
+            prizeText = `👑 LEGENDARY SKIN! <br>RAREST ITEM ✅`;
+        } else {
+            coins += 500;
+            prizeText = `👑 Legend Duplicate!<br>+500 Coins`;
+        }
+        targetOffset = 313;
+    } else if(rand < 97){
+        prize = 'fire';
+        if(!unlockedSkins.includes('fire')){
+            unlockedSkins.push('fire');
+            currentSkin = 'fire';
+            prizeText = `🔥 FIRE SKIN! <br>Check Vault 🗃️`;
+        } else {
+            coins += 100;
+            prizeText = `🔥 Fire Duplicate!<br>+100 Coins`;
+        }
+        targetOffset = 340;
+    } else {
+        prize = 'aura';
+        if(!unlockedSkins.includes('aura')){
+            unlockedSkins.push('aura');
+            currentSkin = 'aura';
+            prizeText = `⚫ AURA SKIN! <br>ULTRA RARE 3% ✅`;
+        } else {
+            coins += 1000;
+            prizeText = `⚫ Aura Duplicate!<br>+1000 Coins`;
+        }
+        targetOffset = 355;
+    }
+
+    let targetAngle = 1800 + Math.random()*1800 + targetOffset;
+    document.getElementById('wheel').style.transform = `rotate(${targetAngle}deg)`;
+
+    setTimeout(() => {
+        document.getElementById('coins').innerText = coins;
+        document.getElementById('menuCoins').innerText = coins;
+        document.getElementById('wheelResult').innerHTML = prizeText;
+        updateSkinDisplay();
+        updatePlayerLevel();
+        spinning = false;
+        document.getElementById('spinBtn').disabled = coins < 500;
+        saveGame();
+    }, 3000);
+}
+// ===== MENU END =====
+
+// PARTICLE EFFECTS
+function createParticles(x,y,color,type){
+    let count = type==='aura'? 12 : 8;
+    for(let i=0;i<count;i++){
+        particles.push({
+            x:x, y:y,
+            vx:(Math.random()-0.5)*(type==='aura'?6:4),
+            vy:(Math.random()-0.5)*(type==='aura'?6:4),
+            life:type==='aura'?30:20,
+            color:color,
+            type:type,
+            size:Math.random()*(type==='aura'?5:3)+2
+        });
+    }
+}
+
+function drawParticles(){
+    particles.forEach((p,i)=>{
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        p.size *= 0.97;
+        c.globalAlpha = p.life/(p.type==='aura'?30:20);
+        c.fillStyle = p.color;
+        if(p.type==='water'){
+            c.beginPath();
+            c.arc(p.x,p.y,p.size,0,Math.PI*2);
+            c.fill();
+        } else if(p.type==='aura'){
+            c.beginPath();
+            c.arc(p.x,p.y,p.size,0,Math.PI*2);
+            c.fill();
+            c.fillStyle = '#000000';
+            c.globalAlpha = (p.life/(30))*0.5;
+            c.beginPath();
+            c.arc(p.x,p.y,p.size*1.5,0,Math.PI*2);
+            c.fill();
+        } else {
+            c.fillRect(p.x,p.y,p.size,p.size);
+        }
+        c.globalAlpha = 1;
+        if(p.life<=0) particles.splice(i,1);
+    });
+}
+
+function gameLoop(){
+    if(!gameRunning || isPaused) return;
+    c.clearRect(0,0,350,350);
+
+    if(keys['ArrowLeft']&&player.x>0) player.x-=player.speed;
+    if(keys['ArrowRight']&&player.x<320) player.x+=player.speed;
+    if(keys['ArrowUp']&&player.y>0) player.y-=player.speed;
+    if(keys['ArrowDown']&&player.y<320) player.y+=player.speed;
+    if(keys[' ']){
+        bullets.push({
+            x:player.x+12,y:player.y,w:6,h:15,
+            type:SKINS[currentSkin].bulletType
+        });
+        keys[' ']=false;
+    }
+
+    // DRAW PLAYER WITH EFFECTS
+    c.fillStyle = SKINS[currentSkin].color;
+    c.fillRect(player.x,player.y,player.w,player.h);
+
+    // FIRE SKIN EFFECT
+    if(currentSkin==='fire'){
+        if(Math.random()<0.3) createParticles(player.x+15,player.y+30,'#ff8800','fire');
+    }
+
+    // AURA SKIN EFFECT - BLACK SMOKE
+    if(currentSkin==='aura'){
+        if(Math.random()<0.4) createParticles(player.x+15,player.y+30,'#1a1a1a','aura');
+    }
+
+    // LEGENDARY CROWN
+    if(currentSkin==='legend'){
+        c.fillStyle = '#FFD700';
+        c.font = 'bold 20px Arial';
+        c.fillText('👑', player.x+5, player.y-5);
+    }
+
+    // DRAW BULLETS
+    bullets.forEach((b,i)=>{
+        b.y-=10;
+        c.fillStyle = SKINS[currentSkin].bulletColor;
+
+        if(b.type==='water'){
+            c.beginPath();
+            c.arc(b.x+3,b.y+7,5,0,Math.PI*2);
+            c.fill();
+        } else if(b.type==='aura'){
+            c.beginPath();
+            c.arc(b.x+3,b.y+7,4,0,Math.PI*2);
+            c.fill();
+            if(Math.random()<0.6) createParticles(b.x+3,b.y+7,'#000000','aura');
+        } else {
+            c.fillRect(b.x,b.y,b.w,b.h);
+            if(b.type==='fire' && Math.random()<0.5){
+                createParticles(b.x+3,b.y,'#ff6600','fire');
+            }
+        }
+
+        if(b.y<0) bullets.splice(i,1);
+    });
+
+    drawParticles();
+
+    if(Math.random()<spawnRate) enemies.push({x:Math.random()*325,y:0,w:25,h:25,speed:enemySpeed,hp:enemyHP});
+
+    c.fillStyle='#ff4444';
+    enemies.forEach((e,i)=>{
+        e.y+=e.speed; c.fillRect(e.x,e.y,e.w,e.h);
+        c.fillStyle='white'; c.fillRect(e.x,e.y-5,e.w,3);
+        c.fillStyle='#00ff88'; c.fillRect(e.x,e.y-5,e.w*(e.hp/enemyHP),3);
+        c.fillStyle='#ff4444';
+
+        if(e.x<player.x+player.w&&e.x+e.w>player.x&&e.y<player.y+player.h&&e.y+e.h>player.y){
+            hp-=10; document.getElementById('hp').innerText=hp; enemies.splice(i,1);
+            if(hp<=0){
+                updatePlayerLevel();
+                saveGame();
+                alert(`GAME OVER! Score: ${score} | Coins: ${coins} 🔥\nPlayer: ${playerName} Lv.${playerLevel}\nSkin: ${SKINS[currentSkin].name}`);
+                gameRunning=false;
+                document.getElementById('menu').style.display='block';
+                document.getElementById('controls').style.display='none';
+                document.getElementById('startBtn').style.display='none';
+            }
+        }
+        bullets.forEach((b,j)=>{
+            if(b.x<e.x+e.w&&b.x+b.w>e.x&&b.y<e.y+e.h&&b.y+b.h>e.y){
+                e.hp--; bullets.splice(j,1);
+                createParticles(e.x+12,e.y+12,'#ff0000','normal');
+                if(e.hp<=0){
+                    enemies.splice(i,1);
+                    score+=10*enemyHP;
+                    coins+=5;
+                    document.getElementById('score').innerText=score;
+                    document.getElementById('coins').innerText=coins;
+                    updatePlayerLevel();
+                    saveGame();
+                }
+            }
+        });
+        if(e.y>350) enemies.splice(i,1);
+    });
+
+    requestAnimationFrame(gameLoop);
+}
+
+loadGame();
+</script>
+</body>
+</html>
